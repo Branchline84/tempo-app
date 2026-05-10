@@ -266,11 +266,15 @@ export default function Room({ params }: { params: { id: string } }) {
   const adminLink = `${currentUrl}/room/${params.id}?admin=true`;
 
   if (roomTitle === "존재하지 않는 방입니다.") {
+    const dbUrl = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || "설정되지 않음";
     return (
       <main className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <h2 style={{ marginBottom: '1rem', color: '#ff3366' }}>방을 찾을 수 없습니다</h2>
-          <p style={{ color: '#999', marginBottom: '2rem' }}>Firebase 데이터베이스 연결 문제이거나 삭제된 방입니다.</p>
+          <p style={{ color: '#999', marginBottom: '1rem' }}>Firebase 데이터베이스 연결 문제이거나 삭제된 방입니다.</p>
+          <div style={{ background: '#222', padding: '0.5rem', borderRadius: '4px', fontSize: '0.75rem', color: '#666', marginBottom: '2rem' }}>
+            연결 시도 주소: {dbUrl}
+          </div>
           <Link href="/">
             <button className="play-btn" style={{ padding: '1rem 2rem' }}>메인으로 돌아가기</button>
           </Link>
