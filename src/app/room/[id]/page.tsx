@@ -48,11 +48,16 @@ export default function Room({ params }: { params: { id: string } }) {
         setTimeout(() => {
           get(roomRef).then(snap => {
             if (!snap.exists()) {
-              alert("존재하지 않거나 삭제된 방입니다.");
-              router.push("/");
+              setRoomTitle("존재하지 않는 방입니다.");
+              setSetlist([]);
+            } else {
+              setRoomTitle(snap.val().title);
+              setSetlist(snap.val().setlist || []);
             }
+          }).catch(err => {
+            alert("Firebase 데이터베이스 접근 권한 오류가 발생했습니다. 규칙(Rules) 설정을 확인해주세요.\n\n" + err.message);
           });
-        }, 1500);
+        }, 2000);
         return;
       }
       
@@ -85,6 +90,9 @@ export default function Room({ params }: { params: { id: string } }) {
           }
         }
       }
+    }, (error) => {
+      console.error("Firebase DB Error:", error);
+      alert("데이터 동기화 오류: " + error.message + "\nFirebase 데이터베이스 규칙이나 URL이 올바른지 확인해주세요.");
     });
 
     return () => unsubscribe();
@@ -257,8 +265,22 @@ export default function Room({ params }: { params: { id: string } }) {
   const viewerLink = `${currentUrl}/room/${params.id}`;
   const adminLink = `${currentUrl}/room/${params.id}?admin=true`;
 
+  if (roomTitle === "존재하지 않는 방입니다.") {
+    return (
+      <main className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ marginBottom: '1rem', color: '#ff3366' }}>방을 찾을 수 없습니다</h2>
+          <p style={{ color: '#999', marginBottom: '2rem' }}>Firebase 데이터베이스 연결 문제이거나 삭제된 방입니다.</p>
+          <Link href="/">
+            <button className="play-btn" style={{ padding: '1rem 2rem' }}>메인으로 돌아가기</button>
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   if (setlist.length === 0) {
-    return <main className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}><div>로딩 중...</div></main>;
+    return <main className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}><div>데이터 동기화 중... (잠시만 기다려주세요)</div></main>;
   }
 
   return (
