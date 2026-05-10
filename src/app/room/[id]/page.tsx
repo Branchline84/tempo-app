@@ -432,16 +432,38 @@ export default function Room() {
               
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', color: 'var(--accent-color)', fontWeight: 700, marginBottom: '0.5rem' }}>관리자 링크 (절대 공유 금지!)</label>
-                <div style={{ background: '#000', padding: '1rem', borderRadius: '8px', wordBreak: 'break-all', fontSize: '0.875rem', color: '#ccc' }}>
-                  {adminLink}
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ flex: 1, background: '#000', padding: '1rem', borderRadius: '8px', wordBreak: 'break-all', fontSize: '0.875rem', color: '#ccc' }}>
+                    {adminLink}
+                  </div>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(adminLink);
+                      alert("관리자 링크가 복사되었습니다.");
+                    }}
+                    style={{ background: 'var(--accent-color)', color: '#000', border: 'none', borderRadius: '8px', padding: '0 1rem', fontWeight: 900, cursor: 'pointer' }}
+                  >
+                    COPY
+                  </button>
                 </div>
                 <p style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.5rem' }}>이 링크는 마스터 폰이나 카카오톡 '나에게 쓰기'에만 저장하세요.</p>
               </div>
 
               <div>
                 <label style={{ display: 'block', color: '#fff', fontWeight: 700, marginBottom: '0.5rem' }}>세션 초대 링크</label>
-                <div style={{ background: '#000', padding: '1rem', borderRadius: '8px', wordBreak: 'break-all', fontSize: '0.875rem', color: '#ccc' }}>
-                  {viewerLink}
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ flex: 1, background: '#000', padding: '1rem', borderRadius: '8px', wordBreak: 'break-all', fontSize: '0.875rem', color: '#ccc' }}>
+                    {viewerLink}
+                  </div>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(viewerLink);
+                      alert("초대 링크가 복사되었습니다.");
+                    }}
+                    style={{ background: '#fff', color: '#000', border: 'none', borderRadius: '8px', padding: '0 1rem', fontWeight: 900, cursor: 'pointer' }}
+                  >
+                    COPY
+                  </button>
                 </div>
                 <p style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.5rem' }}>팀원들에게 공유하세요. 보기만 가능하며 템포 조작이 불가능합니다.</p>
               </div>
