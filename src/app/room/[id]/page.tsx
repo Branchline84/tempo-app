@@ -222,22 +222,26 @@ export default function Room() {
 
   // 뷰어들을 위한 자동 스케줄러 트리거 (관리자가 아닌데 재생 중 상태를 수신했을 때)
   useEffect(() => {
-    if (!isAdmin && isPlaying && audioCtxRef.current && audioCtxRef.current.state !== 'suspended') {
-      if (!timerIDRef.current) {
-        // 동기화를 위해 nextNoteTimeRef 초기화 로직 추가
-        const nowServer = Date.now() + serverTimeOffset;
-        const roomRef = ref(database, `rooms/${id}/state`);
-        get(roomRef).then(snap => {
-          const state = snap.val();
-          if (state && state.isPlaying && state.startTime) {
-            const timeElapsedMs = nowServer - state.startTime;
-            const beatDurationMs = 60000 / bpm;
-            const beatsPassed = Math.ceil(timeElapsedMs / beatDurationMs);
-            const msUntilNextBeat = (beatsPassed * beatDurationMs) - timeElapsedMs;
-            nextNoteTimeRef.current = audioCtxRef.current!.currentTime + (msUntilNextBeat / 1000);
-            scheduler();
-          }
-        });
+    if (!isAdmin && isPlaying) {
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'suspended') {
+        if (!timerIDRef.current) {
+          const nowServer = Date.now() + serverTimeOffset;
+          const roomRef = ref(database, `rooms/${id}/state`);
+          get(roomRef).then(snap => {
+            const state = snap.val();
+            if (state && state.isPlaying && state.startTime) {
+              const timeElapsedMs = nowServer - state.startTime;
+              const beatDurationMs = 60000 / bpm;
+              const beatsPassed = Math.ceil(timeElapsedMs / beatDurationMs);
+              const msUntilNextBeat = (beatsPassed * beatDurationMs) - timeElapsedMs;
+              nextNoteTimeRef.current = audioCtxRef.current!.currentTime + (msUntilNextBeat / 1000);
+              scheduler();
+            }
+          });
+        }
+      } else {
+        // 오디오가 정지 상태일 때도 화면 반짝임이라도 보여주기 위한 시각적 스케줄러 (선택 사항)
+        // 여기서는 터치 유도 문구를 더 확실하게 보여주는 쪽으로 집중합니다.
       }
     } else if (!isPlaying && timerIDRef.current) {
       cancelAnimationFrame(timerIDRef.current);
@@ -374,9 +378,37 @@ export default function Room() {
                 {isMuted ? 'UNMUTE' : 'MUTE'}
               </button>
             </div>
-            {!isAdmin && isPlaying && audioCtxRef.current?.state === 'suspended' && (
-              <div style={{ color: 'var(--accent-color)', fontWeight: 900, fontSize: '0.875rem', animation: 'pulse 1s infinite alternate' }}>
-                TAP ANYWHERE TO SYNC AUDIO
+            {!isAdmin && isPlaying && (!audioCtxRef.current || audioCtxRef.current.state === 'suspended') && (
+              <div 
+                onClick={() => {
+                  if (audioCtxRef.current) {
+                    audioCtxRef.current.resume().then(() => {
+                      if (isPlaying && !timerIDRef.current) scheduler();
+                    });
+                  }
+                }}
+                style={{ 
+                  position: 'fixed', 
+                  top: 0, left: 0, right: 0, bottom: 0, 
+                  backgroundColor: 'rgba(224, 255, 0, 0.2)', 
+                  zIndex: 200, 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(10px)',
+                  textAlign: 'center',
+                  padding: '2rem'
+                }}
+              >
+                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--accent-color)', textShadow: '0 0 20px rgba(0,0,0,0.5)', marginBottom: '1rem' }}>
+                  TAP TO JOIN SESSION
+                </div>
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#fff' }}>
+                  실시간 동기화를 위해 화면을 터치해 주세요
+                </div>
+                <div style={{ marginTop: '2rem', width: '60px', height: '60px', borderRadius: '50%', border: '4px solid var(--accent-color)', animation: 'pulse 1s infinite' }}></div>
               </div>
             )}
           </div>
