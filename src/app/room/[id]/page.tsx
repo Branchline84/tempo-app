@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { database } from "@/lib/firebase";
 import { ref, onValue, set, get, serverTimestamp } from "firebase/database";
 
-export default function Room({ params }: { params: { id: string } }) {
+export default function Room() {
   const router = useRouter();
+  const params = useParams();
+  const id = params.id as string;
   const searchParams = useSearchParams();
   const isAdmin = searchParams.get('admin') === 'true';
 
@@ -39,7 +41,8 @@ export default function Room({ params }: { params: { id: string } }) {
   }, []);
 
   useEffect(() => {
-    const roomRef = ref(database, `rooms/${params.id}`);
+    if (!id) return;
+    const roomRef = ref(database, `rooms/${id}`);
     
     const unsubscribe = onValue(roomRef, (snapshot) => {
       const data = snapshot.val();
@@ -100,8 +103,8 @@ export default function Room({ params }: { params: { id: string } }) {
 
   // 서버에 상태 업데이트 (관리자 전용)
   const updateState = async (newState: Partial<{ isPlaying: boolean, bpm: number, currentSongIndex: number, startTime: any }>) => {
-    if (!isAdmin) return;
-    const stateRef = ref(database, `rooms/${params.id}/state`);
+    if (!isAdmin || !id) return;
+    const stateRef = ref(database, `rooms/${id}/state`);
     
     // 기존 상태를 유지하면서 덮어쓰기 위해 현재 상태 먼저 읽기
     const snapshot = await get(stateRef);
@@ -262,8 +265,8 @@ export default function Room({ params }: { params: { id: string } }) {
   const nextSong = currentSongIndex + 1 < setlist.length ? setlist[currentSongIndex + 1] : null;
 
   const currentUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const viewerLink = `${currentUrl}/room/${params.id}`;
-  const adminLink = `${currentUrl}/room/${params.id}?admin=true`;
+  const viewerLink = `${currentUrl}/room/${id}`;
+  const adminLink = `${currentUrl}/room/${id}?admin=true`;
 
   if (roomTitle === "존재하지 않는 방입니다.") {
     const dbUrl = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || "설정되지 않음";
@@ -273,7 +276,8 @@ export default function Room({ params }: { params: { id: string } }) {
           <h2 style={{ marginBottom: '1rem', color: '#ff3366' }}>방을 찾을 수 없습니다</h2>
           <p style={{ color: '#999', marginBottom: '1rem' }}>Firebase 데이터베이스 연결 문제이거나 삭제된 방입니다.</p>
           <div style={{ background: '#222', padding: '0.5rem', borderRadius: '4px', fontSize: '0.75rem', color: '#666', marginBottom: '2rem' }}>
-            연결 시도 주소: {dbUrl}
+            연결 시도 주소: {dbUrl}<br/>
+            찾으려는 방 ID: {id || "알 수 없음"}
           </div>
           <Link href="/">
             <button className="play-btn" style={{ padding: '1rem 2rem' }}>메인으로 돌아가기</button>
