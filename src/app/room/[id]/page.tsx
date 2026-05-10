@@ -44,8 +44,15 @@ export default function Room({ params }: { params: { id: string } }) {
     const unsubscribe = onValue(roomRef, (snapshot) => {
       const data = snapshot.val();
       if (!data) {
-        alert("존재하지 않거나 삭제된 방입니다.");
-        router.push("/");
+        // 데이터가 아직 도달하지 않았을 수 있으므로 약간의 지연 후 다시 확인
+        setTimeout(() => {
+          get(roomRef).then(snap => {
+            if (!snap.exists()) {
+              alert("존재하지 않거나 삭제된 방입니다.");
+              router.push("/");
+            }
+          });
+        }, 1500);
         return;
       }
       

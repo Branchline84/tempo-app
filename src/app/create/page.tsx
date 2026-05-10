@@ -120,8 +120,8 @@ export default function CreateWorship() {
                   <input 
                     type="number" 
                     className="input-field"
-                    value={song.bpm}
-                    onChange={e => updateSong(idx, 'bpm', parseInt(e.target.value) || 0)}
+                    value={song.bpm || ''}
+                    onChange={e => updateSong(idx, 'bpm', e.target.value === '' ? 0 : parseInt(e.target.value, 10))}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
