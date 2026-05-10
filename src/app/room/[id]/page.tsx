@@ -29,6 +29,14 @@ export default function Room() {
   const timerIDRef = useRef<number | null>(null);
   const currentSongRef = useRef<HTMLDivElement>(null);
 
+  // Refs to avoid stale closures in RAF loop and event handlers
+  const bpmRef = useRef(bpm);
+  const isMutedRef = useRef(isMuted);
+  const isPlayingRef = useRef(isPlaying);
+  bpmRef.current = bpm;
+  isMutedRef.current = isMuted;
+  isPlayingRef.current = isPlaying;
+
   // NTP Server Time Offset
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
@@ -190,7 +198,7 @@ export default function Room() {
   const playClick = (time: number) => {
     if (!audioCtxRef.current) return;
     
-    if (!isMuted) {
+    if (!isMutedRef.current) {
       const osc = audioCtxRef.current.createOscillator();
       const gain = audioCtxRef.current.createGain();
       
@@ -215,7 +223,7 @@ export default function Room() {
     if (!audioCtxRef.current) return;
     while (nextNoteTimeRef.current < audioCtxRef.current.currentTime + 0.1) {
       playClick(nextNoteTimeRef.current);
-      nextNoteTimeRef.current += 60.0 / bpm;
+      nextNoteTimeRef.current += 60.0 / bpmRef.current;
     }
     timerIDRef.current = requestAnimationFrame(scheduler);
   };
@@ -258,7 +266,7 @@ export default function Room() {
       if (audioCtxRef.current.state === 'suspended') {
         audioCtxRef.current.resume().then(() => {
           // 활성화된 후 재생 중이면 스케줄러 트리거
-          if (!isAdmin && isPlaying && !timerIDRef.current) {
+          if (!isAdmin && isPlayingRef.current && !timerIDRef.current) {
             scheduler();
           }
         });
@@ -381,11 +389,12 @@ export default function Room() {
             {!isAdmin && isPlaying && (!audioCtxRef.current || audioCtxRef.current.state === 'suspended') && (
               <div 
                 onClick={() => {
-                  if (audioCtxRef.current) {
-                    audioCtxRef.current.resume().then(() => {
-                      if (isPlaying && !timerIDRef.current) scheduler();
-                    });
+                  if (!audioCtxRef.current) {
+                    audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
                   }
+                  audioCtxRef.current.resume().then(() => {
+                    if (isPlayingRef.current && !timerIDRef.current) scheduler();
+                  });
                 }}
                 style={{ 
                   position: 'fixed', 
