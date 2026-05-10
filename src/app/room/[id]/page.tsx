@@ -363,7 +363,7 @@ export default function Room() {
           </div>
         </section>
 
-        <section className="setlist-container" style={{ display: 'flex', flexDirection: 'column', height: '240px', marginTop: 'auto', flexShrink: 0 }}>
+        <section className="setlist-container" style={{ display: 'flex', flexDirection: 'column', marginTop: 'auto', flexShrink: 1, overflow: 'hidden', maxHeight: '40%' }}>
           <div className="setlist-header" style={{ flexShrink: 0 }}>
             <span className="setlist-title">Setlist ({currentSongIndex + 1} / {setlist.length})</span>
             {isAdmin && (

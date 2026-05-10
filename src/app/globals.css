@@ -46,7 +46,14 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 2rem;
+  height: 100dvh; /* 모바일 주소창 대응 */
+  padding: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .app-container {
+    padding: 2rem;
+  }
 }
 
 .header {
@@ -106,15 +113,23 @@ body {
 }
 
 .bpm-display {
-  font-size: 8rem;
+  font-size: 5rem;
   font-weight: 900;
   line-height: 1;
-  letter-spacing: -5px;
-  min-width: 200px;
+  letter-spacing: -2px;
+  min-width: 120px;
   text-align: center;
   cursor: pointer;
   transition: transform 0.05s ease-out, color 0.1s;
   user-select: none;
+}
+
+@media (min-width: 768px) {
+  .bpm-display {
+    font-size: 8rem;
+    letter-spacing: -5px;
+    min-width: 200px;
+  }
 }
 
 .bpm-display:active {
@@ -150,12 +165,19 @@ body {
   color: var(--bg-color);
   border: none;
   border-radius: 50px;
-  padding: 1rem 3rem;
-  font-size: 1.25rem;
+  padding: 0.875rem 2rem;
+  font-size: 1.125rem;
   font-weight: 900;
   text-transform: uppercase;
   cursor: pointer;
   transition: transform 0.1s, background-color 0.2s;
+}
+
+@media (min-width: 768px) {
+  .play-btn {
+    padding: 1rem 3rem;
+    font-size: 1.25rem;
+  }
 }
 
 .play-btn:active {
@@ -192,8 +214,14 @@ body {
 .setlist-container {
   background-color: var(--surface-color);
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 1rem;
   margin-top: auto;
+}
+
+@media (min-width: 768px) {
+  .setlist-container {
+    padding: 1.5rem;
+  }
 }
 
 .setlist-header {
@@ -254,8 +282,14 @@ body {
 }
 
 .song-title {
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 700;
+}
+
+@media (min-width: 768px) {
+  .song-title {
+    font-size: 1.25rem;
+  }
 }
 
 .song-meta {
