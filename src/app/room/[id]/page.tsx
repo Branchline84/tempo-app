@@ -222,19 +222,28 @@ export default function Room() {
 
   // 뷰어들을 위한 자동 스케줄러 트리거 (관리자가 아닌데 재생 중 상태를 수신했을 때)
   useEffect(() => {
-    if (!isAdmin && isPlaying && audioCtxRef.current?.state !== 'suspended') {
+    if (!isAdmin && isPlaying && audioCtxRef.current && audioCtxRef.current.state !== 'suspended') {
       if (!timerIDRef.current) {
-        scheduler();
+        // 동기화를 위해 nextNoteTimeRef 초기화 로직 추가
+        const nowServer = Date.now() + serverTimeOffset;
+        const roomRef = ref(database, `rooms/${id}/state`);
+        get(roomRef).then(snap => {
+          const state = snap.val();
+          if (state && state.isPlaying && state.startTime) {
+            const timeElapsedMs = nowServer - state.startTime;
+            const beatDurationMs = 60000 / bpm;
+            const beatsPassed = Math.ceil(timeElapsedMs / beatDurationMs);
+            const msUntilNextBeat = (beatsPassed * beatDurationMs) - timeElapsedMs;
+            nextNoteTimeRef.current = audioCtxRef.current!.currentTime + (msUntilNextBeat / 1000);
+            scheduler();
+          }
+        });
       }
     } else if (!isPlaying && timerIDRef.current) {
       cancelAnimationFrame(timerIDRef.current);
       timerIDRef.current = null;
     }
-    
-    return () => {
-      if (timerIDRef.current) cancelAnimationFrame(timerIDRef.current);
-    };
-  }, [isPlaying, isAdmin, bpm]);
+  }, [isPlaying, isAdmin, bpm, id, serverTimeOffset]);
 
   // 첫 사용자 인터랙션 시 오디오 컨텍스트 활성화 (크롬 정책)
   useEffect(() => {
@@ -243,7 +252,12 @@ export default function Room() {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
       if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume();
+        audioCtxRef.current.resume().then(() => {
+          // 활성화된 후 재생 중이면 스케줄러 트리거
+          if (!isAdmin && isPlaying && !timerIDRef.current) {
+            scheduler();
+          }
+        });
       }
     };
     
@@ -360,6 +374,11 @@ export default function Room() {
                 {isMuted ? 'UNMUTE' : 'MUTE'}
               </button>
             </div>
+            {!isAdmin && isPlaying && audioCtxRef.current?.state === 'suspended' && (
+              <div style={{ color: 'var(--accent-color)', fontWeight: 900, fontSize: '0.875rem', animation: 'pulse 1s infinite alternate' }}>
+                TAP ANYWHERE TO SYNC AUDIO
+              </div>
+            )}
           </div>
         </section>
 
