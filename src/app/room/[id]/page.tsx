@@ -39,7 +39,7 @@ export default function Room({ params }: { params: { id: string } }) {
   }, []);
 
   useEffect(() => {
-    const roomRef = ref(database, \`rooms/\${params.id}\`);
+    const roomRef = ref(database, `rooms/${params.id}`);
     
     const unsubscribe = onValue(roomRef, (snapshot) => {
       const data = snapshot.val();
@@ -86,7 +86,7 @@ export default function Room({ params }: { params: { id: string } }) {
   // 서버에 상태 업데이트 (관리자 전용)
   const updateState = async (newState: Partial<{ isPlaying: boolean, bpm: number, currentSongIndex: number, startTime: any }>) => {
     if (!isAdmin) return;
-    const stateRef = ref(database, \`rooms/\${params.id}/state\`);
+    const stateRef = ref(database, `rooms/${params.id}/state`);
     
     // 기존 상태를 유지하면서 덮어쓰기 위해 현재 상태 먼저 읽기
     const snapshot = await get(stateRef);
@@ -247,8 +247,8 @@ export default function Room({ params }: { params: { id: string } }) {
   const nextSong = currentSongIndex + 1 < setlist.length ? setlist[currentSongIndex + 1] : null;
 
   const currentUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const viewerLink = \`\${currentUrl}/room/\${params.id}\`;
-  const adminLink = \`\${currentUrl}/room/\${params.id}?admin=true\`;
+  const viewerLink = `${currentUrl}/room/${params.id}`;
+  const adminLink = `${currentUrl}/room/${params.id}?admin=true`;
 
   if (setlist.length === 0) {
     return <main className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}><div>로딩 중...</div></main>;
@@ -256,7 +256,7 @@ export default function Room({ params }: { params: { id: string } }) {
 
   return (
     <>
-      <div className={\`pulse-bg \${pulse ? 'pulse-active' : ''}\`}></div>
+      <div className={`pulse-bg ${pulse ? 'pulse-active' : ''}`}></div>
       <main className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
         <header className="header">
           <Link href="/" style={{ color: 'var(--text-color)', textDecoration: 'none' }}>
@@ -310,14 +310,14 @@ export default function Room({ params }: { params: { id: string } }) {
           <div className="controls">
             <div className="main-controls">
               <button 
-                className={\`play-btn \${isPlaying ? 'playing' : ''}\`}
+                className={`play-btn ${isPlaying ? 'playing' : ''}`}
                 onClick={togglePlay}
                 style={{ opacity: isAdmin ? 1 : 0.5, pointerEvents: isAdmin ? 'auto' : 'none' }}
               >
                 {isPlaying ? 'STOP' : 'PLAY'}
               </button>
               <button 
-                className={\`action-btn \${isMuted ? 'muted' : ''}\`}
+                className={`action-btn ${isMuted ? 'muted' : ''}`}
                 onClick={() => setIsMuted(!isMuted)}
               >
                 {isMuted ? 'UNMUTE' : 'MUTE'}
