@@ -28,6 +28,11 @@ export default function Room() {
   const nextNoteTimeRef = useRef(0);
   const timerIDRef = useRef<number | null>(null);
   const currentSongRef = useRef<HTMLDivElement>(null);
+  
+  // New refs for high precision sync
+  const startTimeRef = useRef<number | null>(null);
+  const beatCountRef = useRef(0);
+  const scheduledBeatsRef = useRef<Set<number>>(new Set());
 
   // Refs to avoid stale closures in RAF loop and event handlers
   const bpmRef = useRef(bpm);
@@ -85,20 +90,32 @@ export default function Room() {
         
         // 재생 중일 경우 스케줄링을 위한 동기화 타임스탬프 계산
         if (data.state.isPlaying && data.state.startTime && audioCtxRef.current) {
-          const nowServer = Date.now() + serverTimeOffset;
-          const timeElapsedMs = nowServer - data.state.startTime;
+          startTimeRef.current = data.state.startTime;
           
-          if (timeElapsedMs > 0) {
+          if (!timerIDRef.current) {
+            const nowServer = Date.now() + serverTimeOffset;
             const beatDurationMs = 60000 / data.state.bpm;
-            // 이미 지나간 비트들을 계산하여 다음 비트가 터져야 할 '정확한 오디오 컨텍스트 시간'을 도출
-            const beatsPassed = Math.ceil(timeElapsedMs / beatDurationMs);
-            const msUntilNextBeat = (beatsPassed * beatDurationMs) - timeElapsedMs;
             
-            // 만약 새로고침 등으로 스케줄러가 멈춰있다면 다시 돌림
-            if (!timerIDRef.current) {
-              nextNoteTimeRef.current = audioCtxRef.current.currentTime + (msUntilNextBeat / 1000);
-            }
+            // 시작점(startTime)으로부터 현재까지 몇 박자가 지났는지 정밀 계산
+            const timeElapsedMs = nowServer - data.state.startTime;
+            
+            // 만약 시작 시간이 미래라면 (targetStartTime), beatsPassed는 0
+            const beatsPassed = Math.max(0, Math.ceil(timeElapsedMs / beatDurationMs));
+            beatCountRef.current = beatsPassed;
+            
+            // 다음 비트가 터져야 할 서버 시간
+            const nextBeatServerTime = data.state.startTime + (beatsPassed * beatDurationMs);
+            
+            // 서버 시간을 로컬 오디오 컨텍스트 시간으로 변환
+            const msUntilNextBeat = nextBeatServerTime - nowServer;
+            nextNoteTimeRef.current = audioCtxRef.current.currentTime + (msUntilNextBeat / 1000);
+            
+            scheduler();
           }
+        } else if (!data.state.isPlaying && timerIDRef.current) {
+          // 서버에서 정지 신호를 받았을 때 스케줄러 중단
+          cancelAnimationFrame(timerIDRef.current);
+          timerIDRef.current = null;
         }
       }
     }, (error) => {
@@ -168,11 +185,16 @@ export default function Room() {
     if (!isAdmin) return;
     
     if (!isPlaying) {
-      // 재생 시작 시 현재 서버 시간을 기록
+      // 재생 시작 시 현재 서버 시간을 기준으로 100ms 뒤를 시작점으로 예약
+      const targetStartTime = Date.now() + serverTimeOffset + 100;
+      startTimeRef.current = targetStartTime;
+      beatCountRef.current = 0;
+      scheduledBeatsRef.current.clear();
+      
       setIsPlaying(true);
       await updateState({ 
         isPlaying: true, 
-        startTime: serverTimestamp() 
+        startTime: targetStartTime 
       });
       
       // 로컬 오디오 컨텍스트 킥스타트
@@ -182,7 +204,12 @@ export default function Room() {
       if (audioCtxRef.current.state === 'suspended') {
         audioCtxRef.current.resume();
       }
-      nextNoteTimeRef.current = audioCtxRef.current.currentTime + 0.1;
+      
+      // 시작 서버 시간을 로컬 오디오 시간으로 변환
+      const nowServer = Date.now() + serverTimeOffset;
+      const msUntilStart = targetStartTime - nowServer;
+      nextNoteTimeRef.current = audioCtxRef.current.currentTime + (msUntilStart / 1000);
+      
       scheduler();
     } else {
       // 정지
@@ -213,49 +240,33 @@ export default function Room() {
       osc.stop(time + 0.1);
     }
 
-    setTimeout(() => {
+    // 비주얼 펄스 동기화 (오디오 시간 기준)
+    const delay = (time - audioCtxRef.current.currentTime) * 1000;
+    if (delay <= 0) {
       setPulse(true);
       setTimeout(() => setPulse(false), 50);
-    }, Math.max(0, (time - audioCtxRef.current.currentTime) * 1000));
+    } else {
+      setTimeout(() => {
+        setPulse(true);
+        setTimeout(() => setPulse(false), 50);
+      }, delay);
+    }
   };
 
   const scheduler = () => {
     if (!audioCtxRef.current) return;
-    while (nextNoteTimeRef.current < audioCtxRef.current.currentTime + 0.1) {
+    
+    // 200ms 룩어헤드로 더 안정적인 스케줄링
+    while (nextNoteTimeRef.current < audioCtxRef.current.currentTime + 0.2) {
       playClick(nextNoteTimeRef.current);
-      nextNoteTimeRef.current += 60.0 / bpmRef.current;
+      
+      // 다음 비트 시간 계산
+      const beatDuration = 60.0 / bpmRef.current;
+      nextNoteTimeRef.current += beatDuration;
     }
     timerIDRef.current = requestAnimationFrame(scheduler);
   };
 
-  // 뷰어들을 위한 자동 스케줄러 트리거 (관리자가 아닌데 재생 중 상태를 수신했을 때)
-  useEffect(() => {
-    if (!isAdmin && isPlaying) {
-      if (audioCtxRef.current && audioCtxRef.current.state !== 'suspended') {
-        if (!timerIDRef.current) {
-          const nowServer = Date.now() + serverTimeOffset;
-          const roomRef = ref(database, `rooms/${id}/state`);
-          get(roomRef).then(snap => {
-            const state = snap.val();
-            if (state && state.isPlaying && state.startTime) {
-              const timeElapsedMs = nowServer - state.startTime;
-              const beatDurationMs = 60000 / bpm;
-              const beatsPassed = Math.ceil(timeElapsedMs / beatDurationMs);
-              const msUntilNextBeat = (beatsPassed * beatDurationMs) - timeElapsedMs;
-              nextNoteTimeRef.current = audioCtxRef.current!.currentTime + (msUntilNextBeat / 1000);
-              scheduler();
-            }
-          });
-        }
-      } else {
-        // 오디오가 정지 상태일 때도 화면 반짝임이라도 보여주기 위한 시각적 스케줄러 (선택 사항)
-        // 여기서는 터치 유도 문구를 더 확실하게 보여주는 쪽으로 집중합니다.
-      }
-    } else if (!isPlaying && timerIDRef.current) {
-      cancelAnimationFrame(timerIDRef.current);
-      timerIDRef.current = null;
-    }
-  }, [isPlaying, isAdmin, bpm, id, serverTimeOffset]);
 
   // 첫 사용자 인터랙션 시 오디오 컨텍스트 활성화 (크롬 정책)
   useEffect(() => {
