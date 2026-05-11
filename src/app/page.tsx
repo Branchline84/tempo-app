@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from 'next/link';
 import { database } from "@/lib/firebase";
-import { ref, onValue, query, orderByKey, limitToLast } from "firebase/database";
+import { ref, onValue, remove } from "firebase/database";
 
 export default function Landing() {
   const [rooms, setRooms] = useState<any[]>([]);
@@ -11,7 +11,6 @@ export default function Landing() {
 
   useEffect(() => {
     const roomsRef = ref(database, 'rooms');
-    // 최근 20개만 가져오기
     const unsubscribe = onValue(roomsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -20,12 +19,26 @@ export default function Landing() {
           ...value
         })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         setRooms(roomsList);
+      } else {
+        setRooms([]);
       }
       setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  const handleDelete = async (id: string, title: string) => {
+    if (window.confirm(`'${title}' 예배를 삭제하시겠습니까?`)) {
+      try {
+        const roomRef = ref(database, `rooms/${id}`);
+        await remove(roomRef);
+      } catch (error) {
+        console.error("Error deleting room:", error);
+        alert("삭제 중 오류가 발생했습니다.");
+      }
+    }
+  };
 
   return (
     <main className="app-container" style={{ overflowY: 'auto' }}>
@@ -54,7 +67,7 @@ export default function Landing() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {rooms.map((room) => (
-                <div key={room.id} style={{ background: 'var(--surface-color)', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div key={room.id} style={{ background: 'var(--surface-color)', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginBottom: '0.25rem' }}>{room.title}</h3>
@@ -62,6 +75,12 @@ export default function Landing() {
                         {room.date || '날짜 미지정'} • {room.setlist?.length || 0}곡
                       </div>
                     </div>
+                    <button 
+                      onClick={() => handleDelete(room.id, room.title)}
+                      style={{ background: 'transparent', border: 'none', color: '#ff3366', fontWeight: 900, cursor: 'pointer', fontSize: '0.75rem', padding: '0.5rem' }}
+                    >
+                      DELETE
+                    </button>
                   </div>
                   
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
