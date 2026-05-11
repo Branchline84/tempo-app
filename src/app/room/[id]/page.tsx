@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { database } from "@/lib/firebase";
-import { ref, onValue, set, get, serverTimestamp } from "firebase/database";
+import { ref, onValue, set, get } from "firebase/database";
 
 export default function Room() {
   const router = useRouter();
@@ -38,6 +38,7 @@ export default function Room() {
   const bpmRef = useRef(bpm);
   const isMutedRef = useRef(isMuted);
   const isPlayingRef = useRef(isPlaying);
+  const serverTimeOffsetRef = useRef(0);
   bpmRef.current = bpm;
   isMutedRef.current = isMuted;
   isPlayingRef.current = isPlaying;
@@ -49,7 +50,9 @@ export default function Room() {
     // 오프셋 감지
     const offsetRef = ref(database, ".info/serverTimeOffset");
     onValue(offsetRef, (snap) => {
-      setServerTimeOffset(snap.val() || 0);
+      const offset = snap.val() || 0;
+      setServerTimeOffset(offset);
+      serverTimeOffsetRef.current = offset;
     });
   }, []);
 
@@ -88,10 +91,13 @@ export default function Room() {
         setBpm(data.state.bpm);
         setCurrentSongIndex(data.state.currentSongIndex);
         
+        // startTime은 AudioContext 유무와 관계없이 항상 저장 (overlay 탭 시 sync에 필요)
+        if (data.state.startTime) {
+          startTimeRef.current = data.state.startTime;
+        }
+
         // 재생 중일 경우 스케줄링을 위한 동기화 타임스탬프 계산
         if (data.state.isPlaying && data.state.startTime && audioCtxRef.current) {
-          startTimeRef.current = data.state.startTime;
-          
           if (!timerIDRef.current) {
             const nowServer = Date.now() + serverTimeOffset;
             const beatDurationMs = 60000 / data.state.bpm;
@@ -276,8 +282,12 @@ export default function Room() {
       }
       if (audioCtxRef.current.state === 'suspended') {
         audioCtxRef.current.resume().then(() => {
-          // 활성화된 후 재생 중이면 스케줄러 트리거
-          if (!isAdmin && isPlayingRef.current && !timerIDRef.current) {
+          if (!isAdmin && isPlayingRef.current && !timerIDRef.current && startTimeRef.current) {
+            const nowServer = Date.now() + serverTimeOffsetRef.current;
+            const beatDurationMs = 60000 / bpmRef.current;
+            const beatsPassed = Math.max(0, Math.ceil((nowServer - startTimeRef.current) / beatDurationMs));
+            const msUntilNextBeat = (startTimeRef.current + beatsPassed * beatDurationMs) - nowServer;
+            nextNoteTimeRef.current = audioCtxRef.current!.currentTime + Math.max(0, msUntilNextBeat / 1000);
             scheduler();
           }
         });
@@ -404,7 +414,14 @@ export default function Room() {
                     audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
                   }
                   audioCtxRef.current.resume().then(() => {
-                    if (isPlayingRef.current && !timerIDRef.current) scheduler();
+                    if (isPlayingRef.current && !timerIDRef.current && startTimeRef.current) {
+                      const nowServer = Date.now() + serverTimeOffsetRef.current;
+                      const beatDurationMs = 60000 / bpmRef.current;
+                      const beatsPassed = Math.max(0, Math.ceil((nowServer - startTimeRef.current) / beatDurationMs));
+                      const msUntilNextBeat = (startTimeRef.current + beatsPassed * beatDurationMs) - nowServer;
+                      nextNoteTimeRef.current = audioCtxRef.current!.currentTime + Math.max(0, msUntilNextBeat / 1000);
+                      scheduler();
+                    }
                   });
                 }}
                 style={{ 
